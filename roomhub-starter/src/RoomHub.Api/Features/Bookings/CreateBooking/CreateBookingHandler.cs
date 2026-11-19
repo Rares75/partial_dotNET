@@ -42,6 +42,13 @@ public sealed class CreateBookingHandler(
                 return Result<Booking>.Failure(BookingErrors.RoomOccupied);
         }
 
+        // R9: a participant may hold at most 2 active bookings per UTC day, across all rooms.
+        var bookingDateUtc = DateOnly.FromDateTime(booking.StartUtc.ToUniversalTime());
+        var activeThatDay = await bookingRepository.CountActiveForBookedByOnDateAsync(
+            booking.BookedBy, bookingDateUtc, cancellationToken);
+        if (activeThatDay >= 2)
+            return Result<Booking>.Failure(BookingErrors.DailyLimitReached);
+
         await bookingRepository.AddAsync(booking, cancellationToken);
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
